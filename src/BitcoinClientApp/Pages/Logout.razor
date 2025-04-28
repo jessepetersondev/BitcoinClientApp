@@ -1,0 +1,12 @@
+@page "/logout"
+@using BitcoinClientApp.Services
+@inject NavigationManager NavigationManager
+@inject CustomAuthStateProvider AuthStateProvider
+
+@code {
+    protected override void OnInitialized()
+    {
+        AuthStateProvider.NotifyUserLogout();
+        NavigationManager.NavigateTo("/login");
+    }
+} 

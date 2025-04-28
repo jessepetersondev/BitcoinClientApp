@@ -1,0 +1,196 @@
+@page "/dashboard"
+@using BitcoinAddressToolkit.Shared.Enums
+@using BitcoinClientApp.Services
+@using NBitcoin
+@inject AddressService AddressService
+@inject NavigationManager NavigationManager
+
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="m-0">Bitcoin Wallet Dashboard</h2>
+                <span class="badge bg-primary fs-6">Mainnet</span>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="row justify-content-center my-5">
+            <div class="col-auto">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <!-- Wallet Summary Card -->
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="card-title mb-0">Wallet Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6 class="text-muted">Status</h6>
+                            <div class="d-flex align-items-center">
+                                <div class="me-2 rounded-circle bg-success" style="width: 10px; height: 10px;"></div>
+                                <span>Active</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6 class="text-muted">Balance</h6>
+                            @if (isLoadingBalance)
+                            {
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Loading balance...</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="fs-4 fw-bold mb-0">
+                                    @((walletBalance?.ToUnit(MoneyUnit.BTC) ?? 0).ToString("0.00000000")) BTC
+                                </p>
+                                @if (walletBalance != null && walletBalance > Money.Zero)
+                                {
+                                    <button class="btn btn-sm btn-outline-primary mt-2" @onclick="RefreshBalance">
+                                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                                    </button>
+                                }
+                            }
+                        </div>
+                        
+                        <div>
+                            <h6 class="text-muted">Addresses</h6>
+                            <p class="fs-4 fw-bold mb-0">@(userAddresses?.Count() ?? 0)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Addresses Card -->
+            <div class="col-md-8">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Your Addresses</h5>
+                        <button class="btn btn-sm btn-outline-light" @onclick="GenerateAddress" disabled="@isLoading">
+                            <i class="bi bi-plus-circle me-1"></i> Generate New
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (address is not null)
+                        {
+                            <div class="alert alert-success d-flex align-items-center" role="alert">
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                                <div>
+                                    <strong>New Address Generated:</strong>
+                                    <span class="ms-2 font-monospace">@address</span>
+                                </div>
+                            </div>
+                        }
+
+                        @if (!userAddresses?.Any() ?? true)
+                        {
+                            <div class="text-center py-4">
+                                <i class="bi bi-wallet2 text-muted fs-1"></i>
+                                <p class="mt-2">No addresses yet. Generate your first Bitcoin address!</p>
+                                <button class="btn btn-primary" @onclick="GenerateAddress" disabled="@isLoading">Generate Address</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">#</th>
+                                            <th scope="col">Address</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @{
+                                            var index = 1;
+                                            foreach (var addr in userAddresses)
+                                            {
+                                                <tr>
+                                                    <th scope="row">@index</th>
+                                                    <td class="font-monospace">@addr</td>
+                                                </tr>
+                                                index++;
+                                            }
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private BitcoinAddress? address;
+    private IEnumerable<BitcoinAddress>? userAddresses;
+    private bool isLoading;
+    private bool isLoadingBalance;
+    private Money? walletBalance;
+    private const string defaultUsername = "default"; // Using a default username for now
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserAddresses();
+        await LoadWalletBalance();
+    }
+
+    private async Task LoadUserAddresses()
+    {
+        userAddresses = await AddressService.GetAddressesForUser(defaultUsername);
+    }
+
+    private async Task LoadWalletBalance()
+    {
+        try
+        {
+            isLoadingBalance = true;
+            //walletBalance = await BalanceService.GetTotalBalanceForUserAsync(defaultUsername);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading wallet balance: {ex.Message}");
+            //walletBalance = Money.Zero;
+        }
+        finally
+        {
+            isLoadingBalance = false;
+        }
+    }
+
+    private async Task RefreshBalance()
+    {
+        await LoadWalletBalance();
+    }
+
+    private async Task GenerateAddress()
+    {
+        try
+        {
+            isLoading = true;
+            var result = await AddressService.CreateNewWallet(defaultUsername);
+            address = result.address;
+            await LoadUserAddresses();
+            // Also refresh balance after generating a new address
+            await LoadWalletBalance();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+} 

@@ -1,0 +1,24 @@
+
+**.gitignore** (repo root)
+
+# .NET build folders
+src/**/bin/ 
+src/**/obj/ 
+tests/**/bin/ 
+tests/**/obj/ 
+samples/**/bin/ 
+samples/**/obj/
+
+# NuGet
+*.nupkg
+.nuget/packages/
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Local toolkit references "C:\Users\jesst\source\repos\"-->
+    <ProjectReference Include="..\..\..\packages\BitcoinAddressToolkit\src\BitcoinAddressToolkit\BitcoinAddressToolkit.csproj" />
+    <ProjectReference Include="..\..\..\packages\TransactionsToolkit\src\TransactionsToolkit\TransactionsToolkit.csproj" />
+    <ProjectReference Include="..\..\..\packages\BtcComplianceToolkit\src\BtcComplianceToolkit\BtcComplianceToolkit.csproj" />
+    <ProjectReference Include="..\..\..\packages\PSBTToolkit\src\PSBTToolkit\PSBTToolkit.csproj" />
+    <ProjectReference Include="..\..\..\packages\WatchOnlyWalletToolkit\src\WatchOnlyWalletToolkit\WatchOnlyWalletToolkit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NBitcoin" Version="8.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>
