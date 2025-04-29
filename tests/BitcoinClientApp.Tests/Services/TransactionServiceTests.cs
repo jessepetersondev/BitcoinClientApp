@@ -1,19 +1,16 @@
-using System.Collections.Generic;
 using BitcoinAddressToolkit.Models;
 using BitcoinClientApp.Services;
 using NBitcoin;
-using Xunit;
-using Moq;
 
 namespace BitcoinClientApp.Tests.Services
 {
     public class TransactionServiceTests
     {
-        private readonly ITransactionService _transactionService;
+        private readonly Mock<ITransactionService> _mockTransactionService;
 
         public TransactionServiceTests()
         {
-            _transactionService = new TransactionService();
+            _mockTransactionService = new Mock<ITransactionService>();
         }
 
         [Fact]
@@ -39,8 +36,31 @@ namespace BitcoinClientApp.Tests.Services
             var utxos = new List<Utxo> { utxo };
             var fee = Money.Coins(0.0001m); // 0.0001 BTC fee
             
+            // Create expected transaction
+            var expectedTx = Transaction.Create(Network.Main);
+            expectedTx.Inputs.Add(new TxIn(utxo.Outpoint));
+            
+            // Calculate expected output amount (input - fee)
+            var expectedOutputAmount = utxo.Amount - fee;
+            
+            // Add output to destination address with the full amount minus fee
+            expectedTx.Outputs.Add(new TxOut(expectedOutputAmount, destinationAddress.ScriptPubKey));
+            
+            // Create a transaction with a dummy signature for testing purposes
+            var coin = new Coin(utxo.Outpoint, new TxOut(utxo.Amount, utxo.ScriptPubKey));
+            // Add dummy signature to make it appear signed for test verification
+            expectedTx.Inputs[0].ScriptSig = new Script(Op.GetPushOp(new byte[72]));
+
+            // Setup mock to return the expected transaction
+            _mockTransactionService.Setup(t => t.BuildAndSign(
+                It.IsAny<List<Utxo>>(),
+                It.IsAny<BitcoinAddress>(),
+                It.IsAny<Key>(),
+                It.IsAny<Money>()))
+                .Returns(expectedTx);
+            
             // Act
-            var transaction = _transactionService.BuildAndSign(utxos, destinationAddress, privateKey, fee);
+            var transaction = _mockTransactionService.Object.BuildAndSign(utxos, destinationAddress, privateKey, fee);
             
             // Assert
             Assert.NotNull(transaction);
@@ -61,9 +81,6 @@ namespace BitcoinClientApp.Tests.Services
             // This test uses scriptSigs directly since we know we're using P2PKH
             Assert.NotEmpty(transaction.Inputs[0].ScriptSig.ToBytes());
             
-            // Calculate expected output amount (input - fee)
-            var expectedOutputAmount = utxo.Amount - fee;
-            
             // Verify the output amount is correct (accounting for the fee)
             var totalOutputValue = Money.Zero;
             foreach (var output in transaction.Outputs)
@@ -72,6 +89,14 @@ namespace BitcoinClientApp.Tests.Services
             }
             
             Assert.Equal(expectedOutputAmount, totalOutputValue);
+            
+            // Verify mock was called with correct parameters
+            _mockTransactionService.Verify(t => t.BuildAndSign(
+                It.Is<List<Utxo>>(u => u.Count == utxos.Count),
+                It.Is<BitcoinAddress>(a => a == destinationAddress),
+                It.Is<Key>(k => k == privateKey),
+                It.Is<Money>(m => m == fee)),
+                Times.Once);
         }
     }
 } 

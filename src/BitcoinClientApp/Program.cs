@@ -24,11 +24,11 @@ builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
     provider.GetRequiredService<CustomAuthStateProvider>());
 
 // Register services
-builder.Services.AddScoped<AddressService>();
+builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IComplianceService, ComplianceService>();
-builder.Services.AddScoped<PsbtService>();
-builder.Services.AddScoped<WatchOnlyService>();
+builder.Services.AddScoped<IPsbtService, PsbtService>();
+builder.Services.AddScoped<IWatchOnlyService, WatchOnlyService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICryptoService, CryptoService>();
 //builder.Services.AddScoped<BalanceService>();

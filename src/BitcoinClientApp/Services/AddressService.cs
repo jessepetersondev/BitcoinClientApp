@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using BitcoinAddressToolkit;
-using BitcoinAddressToolkit.Shared.Enums;
 using NBitcoin;
 using BitcoinClientApp.Data;
 using BitcoinClientApp.Models;
@@ -11,7 +9,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BitcoinClientApp.Services
 {
-    public class AddressService
+    public interface IAddressService
+    {
+        Task<(Key privateKey, BitcoinAddress address)> CreateNewWallet(string username);
+        Task<IEnumerable<BitcoinAddress>> GetAddressesForUser(string username);
+        Task<Key?> GetPrivateKeyForAddress(string address, string username);
+    }
+
+    public class AddressService : IAddressService
     {
         private readonly ApplicationDbContext _context;
         private readonly ICryptoService _cryptoService;
@@ -102,7 +107,7 @@ namespace BitcoinClientApp.Services
 
             if (wallet == null)
                 return null;
-
+            
             try
             {
                 // Decrypt the private key

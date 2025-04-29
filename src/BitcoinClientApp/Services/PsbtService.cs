@@ -5,7 +5,15 @@ using System.Linq;
 
 namespace BitcoinClientApp.Services
 {
-    public class PsbtService
+    public interface IPsbtService
+    {
+        PSBT Create(IEnumerable<Coin> coins, IEnumerable<TxOut> outs, FeeRate fee);
+        PSBT Parse(string b64);
+        PSBT Sign(PSBT psbt, ExtKey key);
+        Transaction Finalize(PSBT psbt);
+    }
+    
+    public class PsbtService : IPsbtService
     {
         public PSBT Create(IEnumerable<Coin> coins, IEnumerable<TxOut> outs, FeeRate fee)
         {

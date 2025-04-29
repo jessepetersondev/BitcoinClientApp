@@ -4,7 +4,14 @@ using System.Collections.Generic;
 
 namespace BitcoinClientApp.Services
 {
-    public class WatchOnlyService
+    public interface IWatchOnlyService
+    {
+        ExtPubKey Parse(string xpub);
+        IEnumerable<BitcoinAddress> Derive(ExtPubKey x, int change, int start, int count);
+        IEnumerable<Utxo> Filter(ExtPubKey x, IEnumerable<Utxo> utxos, int change, int start, int count);
+    }
+
+    public class WatchOnlyService : IWatchOnlyService
     {
         public ExtPubKey Parse(string xpub) => WatchOnlyWalletToolkit.WatchOnlyWalletToolkit.ParseXpub(xpub);
 

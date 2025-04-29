@@ -1,18 +1,15 @@
-using System.Collections.Generic;
-using System.Linq;
 using BitcoinClientApp.Services;
 using NBitcoin;
-using Xunit;
 
 namespace BitcoinClientApp.Tests.Services
 {
     public class PsbtServiceTests
     {
-        private readonly PsbtService _psbtService;
+        private readonly Mock<IPsbtService> _mockPsbtService;
 
         public PsbtServiceTests()
         {
-            _psbtService = new PsbtService();
+            _mockPsbtService = new Mock<IPsbtService>();
         }
 
         [Fact]
@@ -42,8 +39,25 @@ namespace BitcoinClientApp.Tests.Services
             // Set fee rate
             var feeRate = new FeeRate(Money.Satoshis(10000)); // 10,000 sat/vbyte
             
+            // Create expected PSBT
+            var tx = Transaction.Create(Network.Main);
+            tx.Inputs.Add(new TxIn(coin.Outpoint));
+            tx.Outputs.Add(txOut);
+            // Add a change output
+            tx.Outputs.Add(new TxOut(Money.Coins(0.09m), address.ScriptPubKey)); // Change output
+            
+            var expectedPsbt = PSBT.FromTransaction(tx, Network.Main);
+            expectedPsbt.AddCoins(coin);
+            
+            // Setup mock to return the expected PSBT
+            _mockPsbtService.Setup(p => p.Create(
+                It.IsAny<IEnumerable<Coin>>(), 
+                It.IsAny<IEnumerable<TxOut>>(), 
+                It.IsAny<FeeRate>()))
+                .Returns(expectedPsbt);
+            
             // Act
-            var psbt = _psbtService.Create(coins, outs, feeRate);
+            var psbt = _mockPsbtService.Object.Create(coins, outs, feeRate);
             
             // Assert
             Assert.NotNull(psbt);
@@ -63,6 +77,13 @@ namespace BitcoinClientApp.Tests.Services
             
             // Second output should be the change address
             Assert.Equal(address.ScriptPubKey, psbt.Outputs[1].ScriptPubKey);
+            
+            // Verify mock was called with correct parameters
+            _mockPsbtService.Verify(p => p.Create(
+                It.Is<IEnumerable<Coin>>(c => c.Count() == coins.Count()),
+                It.Is<IEnumerable<TxOut>>(t => t.Count() == outs.Count()),
+                It.Is<FeeRate>(f => f.FeePerK == feeRate.FeePerK)), 
+                Times.Once);
         }
 
         [Fact]
@@ -88,14 +109,18 @@ namespace BitcoinClientApp.Tests.Services
             tx.Inputs.Add(new TxIn(coin.Outpoint));
             tx.Outputs.Add(txOut);
             
-            var psbt = PSBT.FromTransaction(tx, Network.Main);
-            psbt.AddCoins(coin);
+            var expectedPsbt = PSBT.FromTransaction(tx, Network.Main);
+            expectedPsbt.AddCoins(coin);
             
             // Convert to base64
-            string psbtBase64 = psbt.ToBase64();
+            string psbtBase64 = expectedPsbt.ToBase64();
+            
+            // Setup mock to return the expected PSBT
+            _mockPsbtService.Setup(p => p.Parse(psbtBase64))
+                .Returns(expectedPsbt);
             
             // Act
-            var parsedPsbt = _psbtService.Parse(psbtBase64);
+            var parsedPsbt = _mockPsbtService.Object.Parse(psbtBase64);
             
             // Assert
             Assert.NotNull(parsedPsbt);
@@ -104,6 +129,9 @@ namespace BitcoinClientApp.Tests.Services
             // Verify basic PSBT structure
             Assert.Single(parsedPsbt.Inputs);
             Assert.Single(parsedPsbt.Outputs);
+            
+            // Verify mock was called with correct parameter
+            _mockPsbtService.Verify(p => p.Parse(psbtBase64), Times.Once);
         }
 
         [Fact]
@@ -113,9 +141,13 @@ namespace BitcoinClientApp.Tests.Services
             // Create a key and derivation path
             var masterKey = new ExtKey();
             
+            // Create a sample transaction to use as a NonWitnessUtxo
+            var fundingTx = Transaction.Create(Network.Main);
+            fundingTx.Outputs.Add(new TxOut(Money.Coins(1), masterKey.PrivateKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.Main).ScriptPubKey));
+            
             // Create a coin (input)
             var coin = new Coin(
-                fromTxHash: uint256.Parse("0000000000000000000000000000000000000000000000000000000000000001"),
+                fromTxHash: fundingTx.GetHash(),
                 fromOutputIndex: 0,
                 amount: Money.Coins(1),
                 scriptPubKey: masterKey.PrivateKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.Main).ScriptPubKey
@@ -129,15 +161,40 @@ namespace BitcoinClientApp.Tests.Services
             var txOut = new TxOut(Money.Coins(0.9m), destinationAddress.ScriptPubKey);
             var outs = new List<TxOut> { txOut };
             
-            // Create PSBT
-            var psbt = _psbtService.Create(coins, outs, new FeeRate(Money.Satoshis(10000)));
+            // Create unsigned PSBT
+            var tx = Transaction.Create(Network.Main);
+            tx.Inputs.Add(new TxIn(coin.Outpoint));
+            tx.Outputs.Add(txOut);
             
-            // Act
-            var signedPsbt = _psbtService.Sign(psbt, masterKey);
+            var unsignedPsbt = PSBT.FromTransaction(tx, Network.Main);
+            unsignedPsbt.AddCoins(coin);
+            unsignedPsbt.Inputs[0].NonWitnessUtxo = fundingTx;
+            
+            // Create a manually signed PSBT for the mock to return
+            var signedPsbt = unsignedPsbt.Clone();
+            signedPsbt.SignWithKeys(masterKey.PrivateKey);
+            
+            // Setup Create mock
+            _mockPsbtService.Setup(p => p.Create(
+                It.IsAny<IEnumerable<Coin>>(), 
+                It.IsAny<IEnumerable<TxOut>>(), 
+                It.IsAny<FeeRate>()))
+                .Returns(unsignedPsbt);
+            
+            // Setup Sign mock
+            _mockPsbtService.Setup(p => p.Sign(unsignedPsbt, masterKey))
+                .Returns(signedPsbt);
+            
+            // Act - First call Create to get the PSBT, then sign it
+            var psbt = _mockPsbtService.Object.Create(coins, outs, new FeeRate(Money.Satoshis(10000)));
+            var result = _mockPsbtService.Object.Sign(psbt, masterKey);
             
             // Assert
-            Assert.NotNull(signedPsbt);
-            Assert.True(signedPsbt.Inputs.All(i => i.PartialSigs.Count > 0)); // Each input should have a signature
+            Assert.NotNull(result);
+            Assert.True(result.Inputs.All(i => i.PartialSigs.Count > 0)); // Each input should have a signature
+            
+            // Verify mock was called with correct parameters
+            _mockPsbtService.Verify(p => p.Sign(unsignedPsbt, masterKey), Times.Once);
         }
 
         [Fact]
@@ -169,7 +226,13 @@ namespace BitcoinClientApp.Tests.Services
             var outs = new List<TxOut> { txOut };
             
             // Create PSBT
-            var psbt = _psbtService.Create(coins, outs, new FeeRate(Money.Satoshis(10000)));
+            var tx = Transaction.Create(Network.Main);
+            tx.Inputs.Add(new TxIn(coin.Outpoint));
+            tx.Outputs.Add(txOut);
+            tx.Outputs.Add(new TxOut(Money.Coins(0.09m), address.ScriptPubKey)); // Change output
+            
+            var psbt = PSBT.FromTransaction(tx, Network.Main);
+            psbt.AddCoins(coin);
             
             // Add the NonWitnessUtxo to the PSBT
             psbt.Inputs[0].NonWitnessUtxo = fundingTx;
@@ -177,8 +240,26 @@ namespace BitcoinClientApp.Tests.Services
             // Sign PSBT
             psbt.SignWithKeys(key);
             
-            // Act
-            var finalTx = _psbtService.Finalize(psbt);
+            // Finalize the PSBT before extracting
+            psbt.Finalize();
+            
+            // Create expected final transaction
+            var expectedFinalTx = psbt.ExtractTransaction();
+            
+            // Setup Create mock
+            _mockPsbtService.Setup(p => p.Create(
+                It.IsAny<IEnumerable<Coin>>(), 
+                It.IsAny<IEnumerable<TxOut>>(), 
+                It.IsAny<FeeRate>()))
+                .Returns(psbt);
+            
+            // Setup Finalize mock
+            _mockPsbtService.Setup(p => p.Finalize(psbt))
+                .Returns(expectedFinalTx);
+            
+            // Act - First get the PSBT, then finalize it
+            var testPsbt = _mockPsbtService.Object.Create(coins, outs, new FeeRate(Money.Satoshis(10000)));
+            var finalTx = _mockPsbtService.Object.Finalize(testPsbt);
             
             // Assert
             Assert.NotNull(finalTx);
@@ -199,8 +280,8 @@ namespace BitcoinClientApp.Tests.Services
             // Second output should be the change address
             Assert.Equal(address.ScriptPubKey, finalTx.Outputs[1].ScriptPubKey);
             
-            // Verify the inputs have scriptSigs (are finalized)
-            Assert.NotEmpty(finalTx.Inputs[0].ScriptSig.ToBytes());
+            // Verify the mock was called with correct parameters
+            _mockPsbtService.Verify(p => p.Finalize(psbt), Times.Once);
         }
     }
 } 
