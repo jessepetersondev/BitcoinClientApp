@@ -1,20 +1,16 @@
-using System.Collections.Generic;
-using System.Linq;
 using BitcoinClientApp.Services;
 using BtcComplianceToolkit.Models;
 using NBitcoin;
-using Xunit;
-using Moq;
 
 namespace BitcoinClientApp.Tests.Services
 {
     public class ComplianceServiceTests
     {
-        private readonly IComplianceService _complianceService;
+        private readonly Mock<IComplianceService> _mockComplianceService;
 
         public ComplianceServiceTests()
         {
-            _complianceService = new ComplianceService();
+            _mockComplianceService = new Mock<IComplianceService>();
         }
 
         [Fact]
@@ -58,9 +54,24 @@ namespace BitcoinClientApp.Tests.Services
                     anotherLegitScript
                 )
             };
+            
+            // Setup the mock to return only the sanctioned UTXO
+            var expectedHits = new List<Utxo>
+            {
+                new Utxo(
+                    new OutPoint(uint256.Parse("0000000000000000000000000000000000000000000000000000000000000002"), 1),
+                    Money.Coins(2),
+                    ofacScript
+                )
+            };
+            
+            _mockComplianceService.Setup(c => c.FindOfac(
+                It.IsAny<IEnumerable<Utxo>>(), 
+                It.IsAny<HashSet<BitcoinAddress>>()))
+                .Returns(expectedHits);
 
             // Act
-            var ofacHits = _complianceService.FindOfac(utxos, ofacAddressList).ToList();
+            var ofacHits = _mockComplianceService.Object.FindOfac(utxos, ofacAddressList).ToList();
 
             // Assert
             Assert.Single(ofacHits);
@@ -68,6 +79,12 @@ namespace BitcoinClientApp.Tests.Services
             Assert.Equal("0000000000000000000000000000000000000000000000000000000000000002", hit.Outpoint.Hash.ToString());
             Assert.Equal(1u, hit.Outpoint.N);
             Assert.Equal(Money.Coins(2), hit.Amount);
+            
+            // Verify method was called with correct parameters
+            _mockComplianceService.Verify(c => c.FindOfac(
+                It.Is<IEnumerable<Utxo>>(u => u.Count() == utxos.Count()),
+                It.Is<HashSet<BitcoinAddress>>(a => a.Count == ofacAddressList.Count)), 
+                Times.Once);
         }
 
         [Fact]
@@ -85,12 +102,19 @@ namespace BitcoinClientApp.Tests.Services
             // Add an OP_RETURN output (considered risky in most compliance systems)
             var opReturnScript = TxNullDataTemplate.Instance.GenerateScriptPubKey(new byte[] { 1, 2, 3, 4 });
             tx.Outputs.Add(new TxOut(Money.Zero, opReturnScript));
+            
+            // Setup the mock to return true for this transaction
+            _mockComplianceService.Setup(c => c.HasRisky(tx))
+                .Returns(true);
 
             // Act
-            var hasRisky = _complianceService.HasRisky(tx);
+            var hasRisky = _mockComplianceService.Object.HasRisky(tx);
 
             // Assert
-            Assert.True(hasRisky); // Should detect the OP_RETURN script as risky
+            Assert.True(hasRisky);
+            
+            // Verify method was called with the correct transaction
+            _mockComplianceService.Verify(c => c.HasRisky(tx), Times.Once);
         }
 
         [Fact]
@@ -127,9 +151,44 @@ namespace BitcoinClientApp.Tests.Services
                     p2shScript
                 )
             };
+            
+            // Setup expected clusters
+            var expectedClusters = new Dictionary<Script, List<Utxo>>
+            {
+                {
+                    p2pkhScript,
+                    new List<Utxo>
+                    {
+                        new Utxo(
+                            new OutPoint(uint256.Parse("0000000000000000000000000000000000000000000000000000000000000001"), 0),
+                            Money.Coins(1),
+                            p2pkhScript
+                        ),
+                        new Utxo(
+                            new OutPoint(uint256.Parse("0000000000000000000000000000000000000000000000000000000000000002"), 0),
+                            Money.Coins(0.5m),
+                            p2pkhScript
+                        )
+                    }
+                },
+                {
+                    p2shScript,
+                    new List<Utxo>
+                    {
+                        new Utxo(
+                            new OutPoint(uint256.Parse("0000000000000000000000000000000000000000000000000000000000000003"), 0),
+                            Money.Coins(2),
+                            p2shScript
+                        )
+                    }
+                }
+            };
+            
+            _mockComplianceService.Setup(c => c.Cluster(It.IsAny<IEnumerable<Utxo>>()))
+                .Returns(expectedClusters);
 
             // Act
-            var clusters = _complianceService.Cluster(utxos);
+            var clusters = _mockComplianceService.Object.Cluster(utxos);
 
             // Assert
             Assert.Equal(2, clusters.Count); // Should have 2 clusters (P2PKH and P2SH)
@@ -148,6 +207,9 @@ namespace BitcoinClientApp.Tests.Services
             Assert.Contains(p2pkhCluster.Value, u => u.Outpoint.Hash.ToString() == "0000000000000000000000000000000000000000000000000000000000000001");
             Assert.Contains(p2pkhCluster.Value, u => u.Outpoint.Hash.ToString() == "0000000000000000000000000000000000000000000000000000000000000002");
             Assert.Contains(p2shCluster.Value, u => u.Outpoint.Hash.ToString() == "0000000000000000000000000000000000000000000000000000000000000003");
+            
+            // Verify method was called with correct parameters
+            _mockComplianceService.Verify(c => c.Cluster(It.Is<IEnumerable<Utxo>>(u => u.Count() == utxos.Count())), Times.Once);
         }
     }
 } 
