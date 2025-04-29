@@ -1,15 +1,11 @@
 using System.Collections.Generic;
 using BitcoinAddressToolkit;
 using BitcoinAddressToolkit.Models;
+using BitcoinClientApp.Interfaces;
 using NBitcoin;
-using TransactionsToolkit;
 
 namespace BitcoinClientApp.Services
 {
-    public interface ITransactionService
-    {
-        Transaction BuildAndSign(IEnumerable<Utxo> utxos, BitcoinAddress dest, Key key, Money fee);
-    }
     
     public class TransactionService : ITransactionService
     {

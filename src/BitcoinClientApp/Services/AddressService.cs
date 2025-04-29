@@ -6,16 +6,10 @@ using NBitcoin;
 using BitcoinClientApp.Data;
 using BitcoinClientApp.Models;
 using Microsoft.EntityFrameworkCore;
+using BitcoinClientApp.Interfaces;
 
 namespace BitcoinClientApp.Services
 {
-    public interface IAddressService
-    {
-        Task<(Key privateKey, BitcoinAddress address)> CreateNewWallet(string username);
-        Task<IEnumerable<BitcoinAddress>> GetAddressesForUser(string username);
-        Task<Key?> GetPrivateKeyForAddress(string address, string username);
-    }
-
     public class AddressService : IAddressService
     {
         private readonly ApplicationDbContext _context;

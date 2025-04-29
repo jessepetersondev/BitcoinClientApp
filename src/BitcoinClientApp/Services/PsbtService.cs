@@ -2,16 +2,10 @@ using PSBTToolkit;
 using NBitcoin;
 using System.Collections.Generic;
 using System.Linq;
+using BitcoinClientApp.Interfaces;
 
 namespace BitcoinClientApp.Services
 {
-    public interface IPsbtService
-    {
-        PSBT Create(IEnumerable<Coin> coins, IEnumerable<TxOut> outs, FeeRate fee);
-        PSBT Parse(string b64);
-        PSBT Sign(PSBT psbt, ExtKey key);
-        Transaction Finalize(PSBT psbt);
-    }
     
     public class PsbtService : IPsbtService
     {

@@ -1,5 +1,6 @@
 using BitcoinClientApp.Models;
 using BitcoinClientApp.Services;
+using BitcoinClientApp.Interfaces;
 
 namespace BitcoinClientApp.Tests.Services
 {

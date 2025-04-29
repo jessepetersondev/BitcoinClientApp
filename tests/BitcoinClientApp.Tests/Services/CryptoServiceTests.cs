@@ -1,4 +1,4 @@
-using BitcoinClientApp.Services;
+using BitcoinClientApp.Interfaces;
 using System.Security.Cryptography;
 
 namespace BitcoinClientApp.Tests.Services

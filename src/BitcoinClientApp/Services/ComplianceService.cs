@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using BtcComplianceToolkit;
 using BtcComplianceToolkit.Models;
 using NBitcoin;
@@ -12,7 +11,6 @@ namespace BitcoinClientApp.Services
         bool HasRisky(Transaction tx);
         IDictionary<Script, List<Utxo>> Cluster(IEnumerable<Utxo> utxos);
     }
-    
     public class ComplianceService : IComplianceService
     {
         public IEnumerable<Utxo> FindOfac(IEnumerable<Utxo> utxos, HashSet<BitcoinAddress> ofac) =>

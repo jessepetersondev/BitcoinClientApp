@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Components.Authorization;
+using BitcoinClientApp.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 

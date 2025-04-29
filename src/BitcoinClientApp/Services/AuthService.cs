@@ -3,18 +3,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using BitcoinClientApp.Data;
+using BitcoinClientApp.Interfaces;
 using BitcoinClientApp.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace BitcoinClientApp.Services
 {
-    public interface IAuthService
-    {
-        Task<User?> GetUserByUsernameAsync(string username);
-        Task<bool> CreateUserAsync(string username, string password);
-        Task<bool> ValidateUserAsync(string username, string password);
-    }
-    
     public class AuthService : IAuthService
     {
         private readonly ApplicationDbContext _context;
