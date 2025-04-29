@@ -5,7 +5,14 @@ using System.Text;
 
 namespace BitcoinClientApp.Services
 {
-    public class CryptoService
+    public interface ICryptoService
+    {
+        string GenerateSalt();
+        string EncryptPrivateKey(string privateKey, string salt);
+        string DecryptPrivateKey(string encryptedPrivateKey, string salt);
+    }
+
+    public class CryptoService : ICryptoService
     {
         private static readonly string DefaultPassword = "BitcoinWallet2023!"; // In a real app, this would be provided by the user
 

@@ -25,12 +25,12 @@ builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
 
 // Register services
 builder.Services.AddScoped<AddressService>();
-builder.Services.AddScoped<TransactionService>();
-builder.Services.AddScoped<ComplianceService>();
+builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<IComplianceService, ComplianceService>();
 builder.Services.AddScoped<PsbtService>();
 builder.Services.AddScoped<WatchOnlyService>();
-builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<CryptoService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICryptoService, CryptoService>();
 //builder.Services.AddScoped<BalanceService>();
 
 var app = builder.Build();

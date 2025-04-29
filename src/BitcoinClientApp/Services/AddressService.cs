@@ -14,9 +14,9 @@ namespace BitcoinClientApp.Services
     public class AddressService
     {
         private readonly ApplicationDbContext _context;
-        private readonly CryptoService _cryptoService;
+        private readonly ICryptoService _cryptoService;
 
-        public AddressService(ApplicationDbContext context, CryptoService cryptoService)
+        public AddressService(ApplicationDbContext context, ICryptoService cryptoService)
         {
             _context = context;
             _cryptoService = cryptoService;
